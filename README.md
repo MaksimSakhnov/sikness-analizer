@@ -1,0 +1,1 @@
+# sikness-analizer

@@ -1,6 +1,6 @@
 import cv2
 import os
-
+from  splice import subtract_images
 def split_and_save_video_frames(video_path):
     # Проверка наличия папки spliced_video и создание ее, если она не существует
     output_dir = 'spliced_video'
@@ -60,6 +60,6 @@ def split_and_save_video_frames(video_path):
 
     # Освободить объект VideoCapture
     cap.release()
+    subtract_images()
 
-# Вызов функции с указанием пути к видеофайлу
-split_and_save_video_frames('video.avi')
+

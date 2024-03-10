@@ -78,12 +78,13 @@ class KivyCamera(BoxLayout):
 
     def update(self, *args):
         ret, frame = self.capture.read()
-        if self.recording:
-            self.out.write(frame)
-        buf = cv2.flip(frame, 0).tostring()
-        texture = Texture.create(size=(frame.shape[1], frame.shape[0]), colorfmt="bgr")
-        texture.blit_buffer(buf, colorfmt="bgr", bufferfmt="ubyte")
-        self.img1.texture = texture
+        if ret:
+            if self.recording:
+                self.out.write(frame)
+            buf = cv2.flip(frame, 0).tostring()
+            texture = Texture.create(size=(frame.shape[1], frame.shape[0]), colorfmt="bgr")
+            texture.blit_buffer(buf, colorfmt="bgr", bufferfmt="ubyte")
+            self.img1.texture = texture
 
     def toggle_recording(self, instance):
         if not self.recording:

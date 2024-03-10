@@ -7,6 +7,7 @@ __pycache__/
 *.so
 .idea/
 images/
+videos/
 video.mp4
 
 # Distribution / packaging

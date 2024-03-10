@@ -3,8 +3,40 @@ import numpy as np
 from matplotlib import pyplot as plt
 import cv2
 
-# Import TF and TF Hub libraries.
-import tensorflow as tf
+interpreter = tf.lite.Interpreter(model_path='3.tflite')
+interpreter.allocate_tensors()
+
+
+def draw_keypoints(frame, keypoints, confidence_threshold):
+    y, x, c = frame.shape
+    shaped = np.squeeze(np.multiply(keypoints, [y, x, 1]))
+
+    for kp in shaped:
+        ky, kx, kp_conf = kp
+        if kp_conf > confidence_threshold:
+            cv2.circle(frame, (int(kx), int(ky)), 4, (0, 255, 0), -1)
+
+
+EDGES = {
+    (0, 1): 'm',
+    (0, 2): 'c',
+    (1, 3): 'm',
+    (2, 4): 'c',
+    (0, 5): 'm',
+    (0, 6): 'c',
+    (5, 7): 'm',
+    (7, 9): 'm',
+    (6, 8): 'c',
+    (8, 10): 'c',
+    (5, 6): 'y',
+    (5, 11): 'm',
+    (6, 12): 'c',
+    (11, 12): 'y',
+    (11, 13): 'm',
+    (13, 15): 'm',
+    (12, 14): 'c',
+    (14, 16): 'c'
+}
 
 
 def draw_connections(frame, keypoints, edges, confidence_threshold):
@@ -20,40 +52,32 @@ def draw_connections(frame, keypoints, edges, confidence_threshold):
             cv2.line(frame, (int(x1), int(y1)), (int(x2), int(y2)), (0, 0, 255), 2)
 
 
-def draw_keypoints(frame, keypoints, confidence_threshold):
-    y, x, c = frame.shape
-    shaped = np.squeeze(np.multiply(keypoints, [y, x, 1]))
+cap = cv2.VideoCapture('videos/video.mp4')
+while cap.isOpened():
+    ret, frame = cap.read()
 
-    for kp in shaped:
-        ky, kx, kp_conf = kp
-        if kp_conf > confidence_threshold:
-            cv2.circle(frame, (int(kx), int(ky)), 4, (0, 255, 0), -1)
+    # Reshape image
+    img = frame.copy()
+    img = tf.image.resize_with_pad(np.expand_dims(img, axis=0), 192, 192)
+    input_image = tf.cast(img, dtype=tf.float32)
 
-        # Load the input image.
-image_path = 'images/frame_17.jpg'
-image = tf.io.read_file(image_path)
-image = tf.compat.v1.image.decode_jpeg(image)
-image = tf.expand_dims(image, axis=0)
-# Resize and pad the image to keep the aspect ratio and fit the expected size.
-image = tf.image.resize_with_pad(image, 192, 192)
+    # Setup input and output
+    input_details = interpreter.get_input_details()
+    output_details = interpreter.get_output_details()
 
-# Initialize the TFLite interpreter
-model_path = '3.tflite'
-interpreter = tf.lite.Interpreter(model_path=model_path)
-interpreter.allocate_tensors()
+    # Make predictions
+    interpreter.set_tensor(input_details[0]['index'], np.array(input_image))
+    interpreter.invoke()
+    keypoints_with_scores = interpreter.get_tensor(output_details[0]['index'])
 
-# TF Lite format expects tensor type of float32.
-input_image = tf.cast(image, dtype=tf.float32)
-input_details = interpreter.get_input_details()
-output_details = interpreter.get_output_details()
+    # Rendering
+    draw_connections(frame, keypoints_with_scores, EDGES, 0.4)
+    draw_keypoints(frame, keypoints_with_scores, 0.4)
 
-interpreter.set_tensor(input_details[0]['index'], input_image.numpy())
+    cv2.imshow('MoveNet Lightning', frame)
 
-interpreter.invoke()
+    if cv2.waitKey(10) & 0xFF == ord('q'):
+        break
 
-# Output is a [1, 1, 17, 3] numpy array.
-keypoints_with_scores = interpreter.get_tensor(output_details[0]['index'])
-draw_connections(frame, keypoints_with_scores, EDGES, 0.4)
-draw_keypoints(frame, keypoints_with_scores, 0.4)
-
-
+cap.release()
+cv2.destroyAllWindows()

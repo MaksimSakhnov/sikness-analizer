@@ -13,7 +13,7 @@ def process_image(image):
     return input_image
 
 # Загрузка изображения
-image_path = 'person.jpg'
+image_path = 'images/frame_0.jpg'
 image = cv2.imread(image_path)
 image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 

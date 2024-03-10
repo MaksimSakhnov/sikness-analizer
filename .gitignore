@@ -6,7 +6,7 @@ __pycache__/
 # C extensions
 *.so
 .idea/
-.images/
+images/
 video.mp4
 
 # Distribution / packaging

@@ -1,46 +1,59 @@
-import cv2
+import tensorflow as tf
 import numpy as np
+from matplotlib import pyplot as plt
+import cv2
+
+# Import TF and TF Hub libraries.
 import tensorflow as tf
 
-# Загрузка модели PoseNet
-interpreter = tf.lite.Interpreter(model_path='posenet_mobilenet_v1_100_257x257_multi_kpt_stripped.tflite')
+
+def draw_connections(frame, keypoints, edges, confidence_threshold):
+    y, x, c = frame.shape
+    shaped = np.squeeze(np.multiply(keypoints, [y, x, 1]))
+
+    for edge, color in edges.items():
+        p1, p2 = edge
+        y1, x1, c1 = shaped[p1]
+        y2, x2, c2 = shaped[p2]
+
+        if (c1 > confidence_threshold) & (c2 > confidence_threshold):
+            cv2.line(frame, (int(x1), int(y1)), (int(x2), int(y2)), (0, 0, 255), 2)
+
+
+def draw_keypoints(frame, keypoints, confidence_threshold):
+    y, x, c = frame.shape
+    shaped = np.squeeze(np.multiply(keypoints, [y, x, 1]))
+
+    for kp in shaped:
+        ky, kx, kp_conf = kp
+        if kp_conf > confidence_threshold:
+            cv2.circle(frame, (int(kx), int(ky)), 4, (0, 255, 0), -1)
+
+        # Load the input image.
+image_path = 'images/frame_17.jpg'
+image = tf.io.read_file(image_path)
+image = tf.compat.v1.image.decode_jpeg(image)
+image = tf.expand_dims(image, axis=0)
+# Resize and pad the image to keep the aspect ratio and fit the expected size.
+image = tf.image.resize_with_pad(image, 192, 192)
+
+# Initialize the TFLite interpreter
+model_path = '3.tflite'
+interpreter = tf.lite.Interpreter(model_path=model_path)
 interpreter.allocate_tensors()
 
-# Получение индексов входных и выходных тензоров
+# TF Lite format expects tensor type of float32.
+input_image = tf.cast(image, dtype=tf.float32)
 input_details = interpreter.get_input_details()
 output_details = interpreter.get_output_details()
 
-# Функция для обработки изображения и обнаружения ключевых точек
-def detect_keypoints(image):
-    input_image = cv2.resize(image, (257, 257))
-    input_image = np.expand_dims(input_image, axis=0)
-    input_image = input_image.astype(np.float32) / 255.0  # Нормализация
-    interpreter.set_tensor(input_details[0]['index'], input_image)
-    interpreter.invoke()
-    keypoints = interpreter.get_tensor(output_details[0]['index'])
-    return keypoints
+interpreter.set_tensor(input_details[0]['index'], input_image.numpy())
 
-# Загрузка изображения
-image_path = 'images/frame_1.jpg'
-image = cv2.imread(image_path)
-image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+interpreter.invoke()
 
-# Обнаружение ключевых точек на изображении
-keypoints = detect_keypoints(image_rgb)
+# Output is a [1, 1, 17, 3] numpy array.
+keypoints_with_scores = interpreter.get_tensor(output_details[0]['index'])
+draw_connections(frame, keypoints_with_scores, EDGES, 0.4)
+draw_keypoints(frame, keypoints_with_scores, 0.4)
 
-# Пример анализа показателей движения
-# Здесь можно реализовать код для отслеживания движения и анализа показателей
-# Например, можно вычислить скорость движения руки на основе изменения положения ключевых точек со временем
 
-# Отображение изображения с ключевыми точками
-for keypoint in keypoints[0]:
-    print(keypoint)
-    y, x = keypoint[:2]  # Используйте только первые два значения
-    cv2.circle(image, (int(x[0] * image.shape[1]), int(y[0] * image.shape[0])), 5, (0, 255, 0), -1)
-
-print('1')
-# Отображение изображения с ключевыми точками и информацией о движении
-cv2.imshow('Pose Estimation', image)
-print('2')
-cv2.waitKey(0)
-cv2.destroyAllWindows()

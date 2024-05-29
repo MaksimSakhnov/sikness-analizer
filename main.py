@@ -14,6 +14,8 @@ import cv2
 import os
 import tensorflow as tf
 import numpy as np
+from kivymd.icon_definitions import md_icons
+
 from poseLib import draw_connections, draw_keypoints, EDGES, EDGES_VEC, EDGES_DEG, RESULT, RESULT_EDGES, draw_plots
 
 # Standard Video Dimensions Sizes
@@ -66,7 +68,7 @@ class KivyCamera(BoxLayout):
         self.container = BoxLayout(orientation='vertical', spacing=50)
         self.grid = BoxLayout(orientation='horizontal', size_hint=(1, .10))
         self.header = BoxLayout(orientation='horizontal', size_hint=(1, .10))
-        self.header_layot = AnchorLayout(anchor_x='right', anchor_y='top')
+        self.header_layout = AnchorLayout(anchor_x='right', anchor_y='top')
         self.footer_layout = AnchorLayout(anchor_x='center', anchor_y='center')
 
         self.img1 = Image()
@@ -86,8 +88,8 @@ class KivyCamera(BoxLayout):
         self.container.add_widget(self.img1)
         self.container.add_widget(self.grid)
 
-        self.header_layot.add_widget(self.history_button)
-        self.header.add_widget(self.header_layot)
+        self.header_layout.add_widget(self.history_button)
+        self.header.add_widget(self.header_layout)
 
         self.footer_layout.add_widget(self.record_button)
         self.grid.add_widget(self.footer_layout)
@@ -173,9 +175,23 @@ class KivyCamera(BoxLayout):
         # # Преобразование строк ключей обратно в пары
         # loaded_dict_with_tuple_keys = {tuple(map(int, k.strip('()').split(', '))): v for k, v in
         #                                loaded_dict_with_str_keys.items()}
+
+        self.header = BoxLayout(orientation='horizontal', size_hint=(1, .10))
+        self.header_layout = AnchorLayout(anchor_x='left', anchor_y='top')
+
+        self.back_button = MDRoundFlatIconButton(icon='keyboard-backspace', theme_text_color='ContrastParentBackground', text="Назад", pos_hint={'center_x': 0.5, 'center_y': 0.5}, size_hint=(None, None), size=(100, 50))
+        self.back_button.bind(on_release=self.render_start_screen)
+
+
         self.container = BoxLayout(orientation='vertical', spacing=50)
         canvas = FigureCanvasKivyAgg(draw_plots(RESULT_EDGES).gcf())
+
+        self.container.add_widget(self.header)
         self.container.add_widget(canvas)
+
+        self.header_layout.add_widget(self.back_button)
+        self.header.add_widget(self.header_layout)
+
         self.add_widget(self.container)
 
 

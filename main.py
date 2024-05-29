@@ -15,7 +15,7 @@ import os
 import tensorflow as tf
 import numpy as np
 from kivymd.icon_definitions import md_icons
-
+import datetime
 from poseLib import draw_connections, draw_keypoints, EDGES, EDGES_VEC, EDGES_DEG, RESULT, RESULT_EDGES, draw_plots
 
 # Standard Video Dimensions Sizes
@@ -42,7 +42,7 @@ class Loader(BoxLayout):
         self.size_hint = (None, None)
         self.size = (50, 50)
 
-        self.loader_image = Image(source='loader.gif',
+        self.loader_image = Image(source='./assets/loader.gif',
                                   size_hint=(None, None),
                                   size=self.size,
                                   allow_stretch=True,
@@ -51,7 +51,8 @@ class Loader(BoxLayout):
 
 
 class KivyCamera(BoxLayout):
-    filename = StringProperty('video.avi')
+    time = datetime.datetime.now().strftime("%m%d%Y%H%M%S")
+    filename = StringProperty('video_' + time + '.mp4')
     frames_per_second = NumericProperty(30.0)
     video_resolution = StringProperty('480p')
 

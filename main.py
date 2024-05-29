@@ -1,3 +1,6 @@
+import json
+
+from kivy_garden.matplotlib import FigureCanvasKivyAgg
 from kivymd.app import MDApp
 from kivy.uix.anchorlayout import AnchorLayout
 from kivy.uix.boxlayout import BoxLayout
@@ -8,13 +11,16 @@ from kivy.properties import StringProperty, NumericProperty
 from kivy.uix.button import Button
 from kivymd.uix.button import MDFlatButton, MDRoundFlatIconButton
 from kivy.uix.label import Label
+from kivy.storage.jsonstore import JsonStore
 import time
+
 
 
 import cv2
 import os
 
 from analyze import split_and_save_video_frames
+from pose import draw_plots
 
 # Standard Video Dimensions Sizes
 STD_DIMENSIONS = {
@@ -26,6 +32,13 @@ VIDEO_TYPE = {
     'mp4': cv2.VideoWriter_fourcc(*'XVID'),
 }
 
+
+
+
+
+
+
+store = JsonStore('data.json')
 
 class Loader(BoxLayout):
     def __init__(self, **kwargs):
@@ -74,6 +87,7 @@ class KivyCamera(BoxLayout):
         self.loader.visible = False
 
         self.record_button.bind(on_release=self.toggle_recording)
+        self.history_button.bind(on_release=self.render_plot)
 
         self.container.add_widget(self.header)
         self.container.add_widget(self.img1)
@@ -174,6 +188,22 @@ class KivyCamera(BoxLayout):
         if ext in VIDEO_TYPE:
             return VIDEO_TYPE[ext]
         return VIDEO_TYPE['avi']
+
+    def render_plot(self, instance):
+        if self.container:
+            self.remove_widget(self.container)
+        # Чтение JSON файла
+        with open('dict.json', 'r') as json_file:
+            loaded_dict_with_str_keys = json.load(json_file)
+
+        self.container = BoxLayout(orientation='vertical', spacing=50)
+        # Преобразование строк ключей обратно в пары
+        loaded_dict_with_tuple_keys = {tuple(map(int, k.strip('()').split(', '))): v for k, v in
+                                       loaded_dict_with_str_keys.items()}
+
+        canvas = FigureCanvasKivyAgg(draw_plots(loaded_dict_with_tuple_keys).gcf())
+        self.container.add_widget(canvas)
+        self.add_widget(self.container)
 
 
 class CamApp(MDApp):

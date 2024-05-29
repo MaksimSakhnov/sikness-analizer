@@ -3,6 +3,8 @@ import tensorflow as tf
 import numpy as np
 import cv2
 import matplotlib.pyplot as plt
+import json
+import gzip
 
 video_path = 'video2.mp4'
 interpreter = tf.lite.Interpreter(model_path='3.tflite')
@@ -155,20 +157,8 @@ def get_pose_line_coords(result_edges):
 
 
 
-def draw_plots(result, result_edges):
-    # Создание первого графика
-    # plt.subplot(2, 1, 1)  # (rows, columns, index)
-    # for edge, data in result.items():
-    #     x, y = data
-    #     plt.plot(x, y, label=KEYPOINT_DICT[edge])
-    # plt.xlabel("X")
-    # plt.ylabel("Y")
-    # plt.title("Движение точек (График 1)")
-    # plt.gca().invert_yaxis()
-    # plt.legend()
-
+def draw_plots(result_edges):
     # Создание второго графика
-    # plt.subplot(2, 1, 2)  # (rows, columns, index)
     for edge, data in result_edges.items():
         x, y = data
         p1, p2 = edge
@@ -190,93 +180,98 @@ def draw_plots(result, result_edges):
     plt.title("Движение точек (График 2)")
     plt.legend()
 
+    # dict_with_str_keys = {str(k): v for k, v in result_edges.items()}
+    #
+    # with open('dict.json', 'w') as json_file:
+    #     json.dump(dict_with_str_keys, json_file)
+
     # plt.tight_layout()  # Для автоматического выравнивания графиков
     plt.gca().invert_yaxis()
-    plt.show()
+    return plt
 
 
-EDGES_VEC = {}
-RESULT = {
-    0: [[], []],
-    1: [[], []],
-    2: [[], []],
-    3: [[], []],
-    4: [[], []],
-    5: [[], []],
-    6: [[], []],
-    7: [[], []],
-    8: [[], []],
-    9: [[], []],
-    10: [[], []],
-    11: [[], []],
-    12: [[], []],
-    13: [[], []],
-    14: [[], []],
-    15: [[], []],
-    16: [[], []],
-}
-
-RESULT_EDGES = {
-    (0, 1): [[], []],
-    (0, 2): [[], []],
-    (1, 3): [[], []],
-    (2, 4): [[], []],
-    (0, 5): [[], []],
-    (0, 6): [[], []],
-    (5, 7): [[], []],
-    (7, 9): [[], []],
-    (6, 8): [[], []],
-    (8, 10): [[], []],
-    (5, 6): [[], []],
-    (5, 11): [[], []],
-    (6, 12): [[], []],
-    (11, 12): [[], []],
-    (11, 13): [[], []],
-    (13, 15): [[], []],
-    (12, 14): [[], []],
-    (14, 16): [[], []]
-}
-
-EDGES_DEG = {}
-for value in EDGES.values():
-    EDGES_DEG[value] = [0]
-
-cap = cv2.VideoCapture(video_path)
-
-while cap.isOpened():
-    ret, frame = cap.read()
-
-    if not ret:
-        break
-
-    # Reshape image
-    img = frame.copy()
-    img = tf.image.resize_with_pad(np.expand_dims(img, axis=0), 192, 192)
-    input_image = tf.cast(img, dtype=tf.float32)
-
-    # Setup input and output
-    input_details = interpreter.get_input_details()
-    output_details = interpreter.get_output_details()
-
-    # Make predictions
-    interpreter.set_tensor(input_details[0]['index'], np.array(input_image))
-    interpreter.invoke()
-    keypoints_with_scores = interpreter.get_tensor(output_details[0]['index'])
-
-    # Rendering
-    draw_connections(frame, keypoints_with_scores, EDGES, 0.4, EDGES_VEC, EDGES_DEG, RESULT, RESULT_EDGES)
-    draw_keypoints(frame, keypoints_with_scores, 0.4)
-
-    cv2.imshow('MoveNet Lightning', frame)
-
-    key = cv2.waitKey(10)
-
-    if key == ord('q') & 0xFF:
-        cap.release()
-        cv2.destroyAllWindows()
-        draw_plots(RESULT, RESULT_EDGES)
-        break
-
-cap.release()
-cv2.destroyAllWindows()
-draw_plots(RESULT, RESULT_EDGES)
+# EDGES_VEC = {}
+# RESULT = {
+#     0: [[], []],
+#     1: [[], []],
+#     2: [[], []],
+#     3: [[], []],
+#     4: [[], []],
+#     5: [[], []],
+#     6: [[], []],
+#     7: [[], []],
+#     8: [[], []],
+#     9: [[], []],
+#     10: [[], []],
+#     11: [[], []],
+#     12: [[], []],
+#     13: [[], []],
+#     14: [[], []],
+#     15: [[], []],
+#     16: [[], []],
+# }
+#
+# RESULT_EDGES = {
+#     (0, 1): [[], []],
+#     (0, 2): [[], []],
+#     (1, 3): [[], []],
+#     (2, 4): [[], []],
+#     (0, 5): [[], []],
+#     (0, 6): [[], []],
+#     (5, 7): [[], []],
+#     (7, 9): [[], []],
+#     (6, 8): [[], []],
+#     (8, 10): [[], []],
+#     (5, 6): [[], []],
+#     (5, 11): [[], []],
+#     (6, 12): [[], []],
+#     (11, 12): [[], []],
+#     (11, 13): [[], []],
+#     (13, 15): [[], []],
+#     (12, 14): [[], []],
+#     (14, 16): [[], []]
+# }
+#
+# EDGES_DEG = {}
+# for value in EDGES.values():
+#     EDGES_DEG[value] = [0]
+#
+# cap = cv2.VideoCapture(video_path)
+#
+# while cap.isOpened():
+#     ret, frame = cap.read()
+#
+#     if not ret:
+#         break
+#
+#     # Reshape image
+#     img = frame.copy()
+#     img = tf.image.resize_with_pad(np.expand_dims(img, axis=0), 192, 192)
+#     input_image = tf.cast(img, dtype=tf.float32)
+#
+#     # Setup input and output
+#     input_details = interpreter.get_input_details()
+#     output_details = interpreter.get_output_details()
+#
+#     # Make predictions
+#     interpreter.set_tensor(input_details[0]['index'], np.array(input_image))
+#     interpreter.invoke()
+#     keypoints_with_scores = interpreter.get_tensor(output_details[0]['index'])
+#
+#     # Rendering
+#     draw_connections(frame, keypoints_with_scores, EDGES, 0.4, EDGES_VEC, EDGES_DEG, RESULT, RESULT_EDGES)
+#     draw_keypoints(frame, keypoints_with_scores, 0.4)
+#
+#     cv2.imshow('MoveNet Lightning', frame)
+#
+#     key = cv2.waitKey(10)
+#
+#     if key == ord('q') & 0xFF:
+#         cap.release()
+#         cv2.destroyAllWindows()
+#         draw_plots(RESULT_EDGES)
+#         break
+#
+# cap.release()
+# cv2.destroyAllWindows()
+# draw_plots(RESULT_EDGES)

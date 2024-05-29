@@ -140,8 +140,7 @@ class KivyCamera(BoxLayout):
             self.recording = False
             self.out.release()
             self.record_button.text = "Начать запись"
-            plt = draw_plots(RESULT_EDGES)
-            plt.show()
+            self.render_plot()
 
     def change_resolution(self, cap, width, height):
         cap.set(3, width)
@@ -163,19 +162,19 @@ class KivyCamera(BoxLayout):
             return VIDEO_TYPE[ext]
         return VIDEO_TYPE['avi']
 
-    def render_plot(self, instance):
+    def render_plot(self):
         if self.container:
             self.remove_widget(self.container)
-        # Чтение JSON файла
-        with open('dict.json', 'r') as json_file:
-            loaded_dict_with_str_keys = json.load(json_file)
-
+        # # Чтение JSON файла
+        # with open('dict.json', 'r') as json_file:
+        #     loaded_dict_with_str_keys = json.load(json_file)
+        #
+        # self.container = BoxLayout(orientation='vertical', spacing=50)
+        # # Преобразование строк ключей обратно в пары
+        # loaded_dict_with_tuple_keys = {tuple(map(int, k.strip('()').split(', '))): v for k, v in
+        #                                loaded_dict_with_str_keys.items()}
         self.container = BoxLayout(orientation='vertical', spacing=50)
-        # Преобразование строк ключей обратно в пары
-        loaded_dict_with_tuple_keys = {tuple(map(int, k.strip('()').split(', '))): v for k, v in
-                                       loaded_dict_with_str_keys.items()}
-
-        canvas = FigureCanvasKivyAgg(draw_plots(loaded_dict_with_tuple_keys).gcf())
+        canvas = FigureCanvasKivyAgg(draw_plots(RESULT_EDGES).gcf())
         self.container.add_widget(canvas)
         self.add_widget(self.container)
 

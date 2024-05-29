@@ -51,8 +51,6 @@ class Loader(BoxLayout):
 
 
 class KivyCamera(BoxLayout):
-    time = datetime.datetime.now().strftime("%m%d%Y%H%M%S")
-    filename = StringProperty('video_' + time + '.mp4')
     frames_per_second = NumericProperty(30.0)
     video_resolution = StringProperty('480p')
 
@@ -64,6 +62,8 @@ class KivyCamera(BoxLayout):
         self.render_start_screen()
 
     def render_start_screen(self, instance=None):
+        time = datetime.datetime.now().strftime("%m%d%Y%H%M%S")
+        self.filename = 'video_' + time + '.mp4'
         if self.container:
             self.remove_widget(self.container)
         self.container = BoxLayout(orientation='vertical', spacing=50)

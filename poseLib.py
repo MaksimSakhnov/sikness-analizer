@@ -195,7 +195,7 @@ def get_pose_line_coords(result_edges):
     return merge_arrays(shoulder_line, hip_line)
 
 
-def draw_plots(result, result_edges):
+def draw_plots(result_edges):
     # Создание первого графика
     # plt.subplot(2, 1, 1)  # (rows, columns, index)
     # for edge, data in result.items():
@@ -235,4 +235,4 @@ def draw_plots(result, result_edges):
 
     # plt.tight_layout()  # Для автоматического выравнивания графиков
     plt.gca().invert_yaxis()
-    plt.show()
+    return plt

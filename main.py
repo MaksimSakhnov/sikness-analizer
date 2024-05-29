@@ -7,16 +7,14 @@ from kivy.uix.image import Image
 from kivy.clock import Clock
 from kivy.graphics.texture import Texture
 from kivy.properties import StringProperty, NumericProperty
-from kivy.uix.button import Button
 from kivymd.uix.button import MDFlatButton, MDRoundFlatIconButton
-from kivy.uix.label import Label
 from kivy.storage.jsonstore import JsonStore
 import time
 import cv2
 import os
-from analyze import split_and_save_video_frames
+import tensorflow as tf
+import numpy as np
 from poseLib import draw_connections, draw_keypoints, EDGES, EDGES_VEC, EDGES_DEG, RESULT, RESULT_EDGES, draw_plots
-from pose import draw_plots
 
 # Standard Video Dimensions Sizes
 STD_DIMENSIONS = {
@@ -30,10 +28,6 @@ VIDEO_TYPE = {
 
 interpreter = tf.lite.Interpreter(model_path='3.tflite')
 interpreter.allocate_tensors()
-
-
-
-
 
 
 
@@ -146,7 +140,8 @@ class KivyCamera(BoxLayout):
             self.recording = False
             self.out.release()
             self.record_button.text = "Начать запись"
-            draw_plots(RESULT, RESULT_EDGES)
+            plt = draw_plots(RESULT_EDGES)
+            plt.show()
 
     def change_resolution(self, cap, width, height):
         cap.set(3, width)

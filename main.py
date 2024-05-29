@@ -1,5 +1,4 @@
 import json
-
 from kivy_garden.matplotlib import FigureCanvasKivyAgg
 from kivymd.app import MDApp
 from kivy.uix.anchorlayout import AnchorLayout
@@ -13,13 +12,10 @@ from kivymd.uix.button import MDFlatButton, MDRoundFlatIconButton
 from kivy.uix.label import Label
 from kivy.storage.jsonstore import JsonStore
 import time
-
-
-
 import cv2
 import os
-
 from analyze import split_and_save_video_frames
+from poseLib import draw_connections, draw_keypoints, EDGES, EDGES_VEC, EDGES_DEG, RESULT, RESULT_EDGES, draw_plots
 from pose import draw_plots
 
 # Standard Video Dimensions Sizes
@@ -31,6 +27,9 @@ VIDEO_TYPE = {
     'avi': cv2.VideoWriter_fourcc(*'XVID'),
     'mp4': cv2.VideoWriter_fourcc(*'XVID'),
 }
+
+interpreter = tf.lite.Interpreter(model_path='3.tflite')
+interpreter.allocate_tensors()
 
 
 
@@ -112,6 +111,23 @@ class KivyCamera(BoxLayout):
                     self.toggle_recording(self)
                 else:
                     self.record_button.text = str(int(remaining_time))
+                    img = frame.copy()
+                    img = tf.image.resize_with_pad(np.expand_dims(img, axis=0), 192, 192)
+                    input_image = tf.cast(img, dtype=tf.float32)
+
+                    # Setup input and output
+                    input_details = interpreter.get_input_details()
+                    output_details = interpreter.get_output_details()
+
+                    # Make predictions
+                    interpreter.set_tensor(input_details[0]['index'], np.array(input_image))
+                    interpreter.invoke()
+                    keypoints_with_scores = interpreter.get_tensor(output_details[0]['index'])
+
+                    # Rendering
+                    draw_connections(frame, keypoints_with_scores, EDGES, 0.4, EDGES_VEC, EDGES_DEG, RESULT,
+                                     RESULT_EDGES)
+                    draw_keypoints(frame, keypoints_with_scores, 0.4)
             buf = cv2.flip(frame, 0).tostring()
             texture = Texture.create(size=(frame.shape[1], frame.shape[0]), colorfmt="bgr")
             texture.blit_buffer(buf, colorfmt="bgr", bufferfmt="ubyte")
@@ -130,44 +146,7 @@ class KivyCamera(BoxLayout):
             self.recording = False
             self.out.release()
             self.record_button.text = "Начать запись"
-
-    def start_analyze(self, instance):
-        self.remove_widget(self.container)
-        self.loader.visible = True
-        split_and_save_video_frames('video.avi')
-        self.loader.visible = False
-        self.container = BoxLayout(orientation='vertical', spacing=50)
-        back_button = Button(text="Назад")
-        back_button.bind(on_press=self.render_start_screen)
-        self.container.add_widget(back_button)
-        self.add_widget(self.container)
-
-        row1 = BoxLayout(orientation='horizontal', spacing=20)
-        row2 = BoxLayout(orientation='horizontal', spacing=20)
-        row3 = BoxLayout(orientation='horizontal', spacing=20)
-        row4 = BoxLayout(orientation='horizontal', spacing=20)
-
-        self.res_1 = Image(source='result_photo/result1.png')
-        self.res_2 = Image(source='result_photo/result2.png')
-        self.res_3 = Image(source='result_photo/result3.png')
-        self.res_4 = Image(source='result_photo/result4.png')
-
-        row1.add_widget(Label(text='Lorem'))
-        row1.add_widget(self.res_1)
-
-        row2.add_widget(Label(text='Lorem'))
-        row2.add_widget(self.res_2)
-
-        row3.add_widget(Label(text='Lorem'))
-        row3.add_widget(self.res_3)
-
-        row4.add_widget(Label(text='Lorem'))
-        row4.add_widget(self.res_4)
-
-        self.container.add_widget(row1)
-        self.container.add_widget(row2)
-        self.container.add_widget(row3)
-        self.container.add_widget(row4)
+            draw_plots(RESULT, RESULT_EDGES)
 
     def change_resolution(self, cap, width, height):
         cap.set(3, width)

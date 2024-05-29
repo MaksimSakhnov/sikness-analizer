@@ -1,11 +1,15 @@
-from kivy.app import App
+from kivymd.app import MDApp
+from kivy.uix.anchorlayout import AnchorLayout
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.image import Image
 from kivy.clock import Clock
 from kivy.graphics.texture import Texture
 from kivy.properties import StringProperty, NumericProperty
 from kivy.uix.button import Button
+from kivymd.uix.button import MDFlatButton, MDRoundFlatIconButton
 from kivy.uix.label import Label
+import time
+
 
 import cv2
 import os
@@ -15,9 +19,6 @@ from analyze import split_and_save_video_frames
 # Standard Video Dimensions Sizes
 STD_DIMENSIONS = {
     "480p": (640, 480),
-    "720p": (1280, 720),
-    "1080p": (1920, 1080),
-    "4k": (3840, 2160),
 }
 
 VIDEO_TYPE = {
@@ -48,6 +49,8 @@ class KivyCamera(BoxLayout):
 
     def __init__(self, **kwargs):
         super(KivyCamera, self).__init__(**kwargs)
+        self.duration = 10
+        self.start_time = -1
         self.container = BoxLayout()
         self.render_start_screen()
 
@@ -55,24 +58,33 @@ class KivyCamera(BoxLayout):
         if self.container:
             self.remove_widget(self.container)
         self.container = BoxLayout(orientation='vertical', spacing=50)
-        self.grid = BoxLayout(orientation='horizontal', size_hint=(1, .20))
+        self.grid = BoxLayout(orientation='horizontal', size_hint=(1, .10))
+        self.header = BoxLayout(orientation='horizontal', size_hint=(1, .10))
+        self.header_layot = AnchorLayout(anchor_x='right', anchor_y='top')
+        self.footer_layout = AnchorLayout(anchor_x='center', anchor_y='center')
 
         self.img1 = Image()
         self.capture = cv2.VideoCapture(0)
         self.out = None
         self.recording = False
-        self.record_button = Button(text="Начать запись")
-        self.analyze_button = Button(text='Анализировать видео!')
+        self.record_button = MDRoundFlatIconButton(icon='camera', theme_text_color='ContrastParentBackground', text="Начать запись", pos_hint={'center_x': 0.5, 'center_y': 0.5}, size_hint=(None, None), size=(100, 50))
+        self.history_button = MDFlatButton(text='История', pos_hint={'center_x': 0.5, 'center_y': 0.5}, size_hint=(None, None), size=(100, 50))
 
         self.loader = Loader()
         self.loader.visible = False
 
         self.record_button.bind(on_release=self.toggle_recording)
-        self.analyze_button.bind(on_release=self.start_analyze)
+
+        self.container.add_widget(self.header)
         self.container.add_widget(self.img1)
         self.container.add_widget(self.grid)
-        self.grid.add_widget(self.record_button)
-        self.grid.add_widget(self.analyze_button)
+
+        self.header_layot.add_widget(self.history_button)
+        self.header.add_widget(self.header_layot)
+
+        self.footer_layout.add_widget(self.record_button)
+        self.grid.add_widget(self.footer_layout)
+
         self.add_widget(self.container)
         Clock.schedule_interval(self.update, 1 / self.frames_per_second)
 
@@ -81,18 +93,26 @@ class KivyCamera(BoxLayout):
         if ret:
             if self.recording:
                 self.out.write(frame)
+                remaining_time = self.duration - (time.time() - self.start_time)
+                if remaining_time <= 0:
+                    self.toggle_recording(self)
+                else:
+                    self.record_button.text = str(int(remaining_time))
             buf = cv2.flip(frame, 0).tostring()
             texture = Texture.create(size=(frame.shape[1], frame.shape[0]), colorfmt="bgr")
             texture.blit_buffer(buf, colorfmt="bgr", bufferfmt="ubyte")
             self.img1.texture = texture
 
     def toggle_recording(self, instance):
+        print('toggle')
         if not self.recording:
+            self.start_time = time.time()
             self.recording = True
             self.out = cv2.VideoWriter(self.filename, self.get_video_type(self.filename), self.frames_per_second,
                                        self.get_dims(self.capture, self.video_resolution))
             self.record_button.text = "Остановить запись"
         else:
+            self.start_time = -1
             self.recording = False
             self.out.release()
             self.record_button.text = "Начать запись"
@@ -156,7 +176,7 @@ class KivyCamera(BoxLayout):
         return VIDEO_TYPE['avi']
 
 
-class CamApp(App):
+class CamApp(MDApp):
     def build(self):
         return KivyCamera()
 

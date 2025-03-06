@@ -51,7 +51,7 @@ def process_video(video_path, plot_path):
     cap.release()
     cv2.destroyAllWindows()
     plt = draw_plots(RESULT_EDGES)
-    plt.savefig(plot_path)
+    plt.savefig(plot_path, bbox_inches='tight')
     plt.close()
 
 

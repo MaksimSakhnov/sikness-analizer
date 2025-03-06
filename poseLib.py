@@ -90,21 +90,6 @@ EDGES_DEG = {}
 for value in EDGES.values():
     EDGES_DEG[value] = [0]
 
-""" Возвращает угол между двумя векторами """
-
-
-def angle_between(x1, y1, x2, y2):
-    def scalar(x1, y1, x2, y2):
-        return x1 * x2 + y1 * y2
-
-    def module(x, y):
-        return math.sqrt(x ** 2 + y ** 2)
-
-    cos = scalar(x1, y1, x2, y2) / (module(x1, y1) * module(x2, y2))
-    if -1 <= cos <= 1:
-        return math.degrees(math.acos(cos))
-    return 0
-
 
 def calculate_angle_for_midline(x1, y1, x2, y2):
     dx = x2 - x1
@@ -173,7 +158,10 @@ def angle_between(x1, y1, x2, y2):
     def module(x, y):
         return math.sqrt(x ** 2 + y ** 2)
 
-    cos = scalar(x1, y1, x2, y2) / (module(x1, y1) * module(x2, y2))
+    tmp = module(x1, y1) * module(x2, y2)
+    if tmp == 0:
+        return 0
+    cos = scalar(x1, y1, x2, y2) / tmp
     if -1 <= cos <= 1:
         return math.degrees(math.acos(cos))
     return 0
@@ -257,10 +245,34 @@ def get_pose_line_coords(result_edges):
     return merge_arrays(shoulder_line, hip_line)
 
 
+def get_diagnosis(max_angle, avg, left_s, right_s):
+    dif = left_s - right_s
+    abs_dif = abs(dif)
+    text = ''
+    asymmetry_text = ''
+    left_right_text = 'влево'
+    if dif < 0:
+        left_right_text = 'вправо'
+    if abs_dif < 4:
+        text = 'нарушения равновесия нет'
+        asymmetry_text = 'асимметрии нет'
+        left_right_text = ''
+    elif abs_dif < 10:
+        text = 'незначительные нарушения равновесия'
+        asymmetry_text = 'незначительная асимметрия'
+    else:
+        text = 'сильные нарушения равновесия'
+        asymmetry_text = 'умеренная асимметрия'
+    return text + ', ' + asymmetry_text + ' ' + left_right_text
+
+
+
 def draw_plots(result_edges):
     # Создание второго графика
     for edge, data in result_edges.items():
         x, y = data
+        if len(x) == 0 or len(y) == 0:
+            continue
         p1, p2 = edge
         first_x = x[0]
         first_y = y[0]
@@ -275,12 +287,16 @@ def draw_plots(result_edges):
     mid_line = get_pose_line_coords(result_edges)
     print(mid_line)
     mid_angles, displacements = calculate_mid_angle(mid_line)
-    plt.plot(mid_line[0], mid_line[1], label='MID (max angle: ' + str(round(max(mid_angles), 2)) + ", avg: " + str(
-        round(Average(mid_angles), 2)) + ', смещение влево px: ' + str(
-        round(max(displacements), 2)) + ', смещение вправо px: ' + str(abs(round(min(displacements), 2))) + ')')
-
+    max_angle = round(max(mid_angles), 2)
+    avg = round(Average(mid_angles), 2)
+    left_s = round(max(displacements), 2)
+    right_s = abs(round(min(displacements), 2))
+    plt.plot(mid_line[0], mid_line[1],
+             label='MID (max angle: ' + str(max_angle) + ", avg: " + str(avg) + ', смещение влево px: '
+                   + str(left_s) + ', смещение вправо px: ' + str(right_s) + ')')
     plt.xlabel("X")
     plt.ylabel("Y")
+    plt.suptitle(get_diagnosis(max_angle, avg, left_s, right_s))
     plt.title("Движение точек (График 2)")
     plt.legend()
 

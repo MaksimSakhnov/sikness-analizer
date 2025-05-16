@@ -2,6 +2,14 @@ import math
 import numpy as np
 import cv2
 import matplotlib.pyplot as plt
+import pandas as pd
+from sklearn.neighbors import NearestNeighbors
+import seaborn as sns
+import ast
+from sklearn.cluster import DBSCAN
+from matplotlib.patches import Ellipse
+from scipy.fftpack import fft
+from sklearn.preprocessing import MinMaxScaler
 
 KEYPOINT_DICT = {
     0: 'нос',
@@ -140,12 +148,72 @@ def calculate_mid_angle(mid_line):
 
 def draw_keypoints(frame, keypoints, confidence_threshold):
     y, x, c = frame.shape
-    shaped = np.squeeze(np.multiply(keypoints, [y, x, 1]))
+    shaped = keypoints
 
     for kp in shaped:
         ky, kx, kp_conf = kp
         if kp_conf > confidence_threshold:
             cv2.circle(frame, (int(kx), int(ky)), 4, (0, 255, 0), -1)
+
+
+def draw_center_of_mass(frame, keypoints, confidence_threshold=0.4, kf_filter=None, center_coords=None):
+    y, x, c = frame.shape
+    shaped = keypoints
+
+    def weighted_center_of_mass_local(keypoints_local, conf_thresh):
+        segments = {
+            'torso': {'points': [11, 12], 'weight': 0.50},
+            'thigh_l': {'points': [11, 13], 'weight': 0.10},
+            'thigh_r': {'points': [12, 14], 'weight': 0.10},
+            'calf_l': {'points': [13, 15], 'weight': 0.05},
+            'calf_r': {'points': [14, 16], 'weight': 0.05},
+            'head': {'points': [0], 'weight': 0.08},
+            'shoulders': {'points': [5, 6], 'weight': 0.12},
+        }
+
+        total_weight = 0
+        sum_x = 0
+        sum_y = 0
+
+        for seg in segments.values():
+            pts = seg['points']
+            w = seg['weight']
+            coords = []
+
+            valid = True
+            for i in pts:
+                y_kp, x_kp, conf = keypoints_local[i]
+                if conf < conf_thresh:
+                    valid = False
+                    break
+                coords.append((x_kp, y_kp))
+
+            if valid:
+                avg_x = np.mean([pt[0] for pt in coords])
+                avg_y = np.mean([pt[1] for pt in coords])
+                sum_x += avg_x * w
+                sum_y += avg_y * w
+                total_weight += w
+
+        if total_weight > 0:
+            center_x = sum_x / total_weight
+            center_y = sum_y / total_weight
+            return (center_x, center_y)
+        else:
+            return None
+
+    center_raw = weighted_center_of_mass_local(shaped, confidence_threshold)
+
+    if kf_filter is not None:
+        center = kf_filter.update(center_raw)
+    else:
+        center = center_raw
+
+    if center:
+        cv2.circle(frame, (int(center[0]), int(center[1])), 6, (255, 255, 0), -1)
+
+        if center and all(np.isfinite(center)) and center_coords is not None:
+            center_coords.append([float(center[0]), float(center[1])])
 
 
 """ Возвращает угол между двумя векторами """
@@ -167,9 +235,142 @@ def angle_between(x1, y1, x2, y2):
     return 0
 
 
+
+
+def compute_metrics(points, fps=30):
+    points = np.array(points)
+    points = points[np.all(np.isfinite(points), axis=1)]
+    """ Рассчитывает метрики устойчивости """
+    t = np.arange(len(points)) / fps  # Временные метки
+    x, y = points[:, 0], points[:, 1]
+
+    # 1. Амплитуда колебаний
+    std_x, std_y = np.std(x), np.std(y)
+    range_x, range_y = np.ptp(x), np.ptp(y)  # max - min
+
+    # 2. RMS отклонений
+    rms_x, rms_y = np.sqrt(np.mean((x - np.mean(x))**2)), np.sqrt(np.mean((y - np.mean(y))**2))
+
+    # 3. Скорость и ускорение
+    dt = 1 / fps
+    dx, dy = np.diff(x) / dt, np.diff(y) / dt  # Скорость
+    ddx, ddy = np.diff(dx) / dt, np.diff(dy) / dt  # Ускорение
+
+    # 4. Длина пути
+    path_length = np.sum(np.sqrt(np.diff(x)**2 + np.diff(y)**2))
+
+    # 5. Среднее отклонение (направление наклона)
+    mean_x_offset = np.mean(x - np.mean(x))  # > 0 — наклон вправо, < 0 — влево
+
+    # 6. Частотный анализ (FFT)
+    fft_x = np.abs(fft(x - np.mean(x)))[:len(x) // 2]
+    fft_y = np.abs(fft(y - np.mean(y)))[:len(y) // 2]
+    dominant_freq_x = np.argmax(fft_x) / len(x) * fps
+    dominant_freq_y = np.argmax(fft_y) / len(y) * fps
+
+    return {
+        'std_x': std_x, 'std_y': std_y,
+        'range_x': range_x, 'range_y': range_y,
+        'rms_x': rms_x, 'rms_y': rms_y,
+        'mean_speed_x': np.mean(np.abs(dx)), 'mean_speed_y': np.mean(np.abs(dy)),
+        'mean_accel_x': np.mean(np.abs(ddx)), 'mean_accel_y': np.mean(np.abs(ddy)),
+        'path_length': path_length,
+        'mean_x_offset': mean_x_offset,
+        'dominant_freq_x': dominant_freq_x, 'dominant_freq_y': dominant_freq_y
+    }
+
+
+
+# Средние stability_score по классам из твоих данных
+ref_class_means = {
+    0: 13.48,
+    1: 40.42,
+    2: 59.17
+}
+
+def compute_stability_score(metrics):
+    ref = {
+        'std_x': (0.4116, 1.9780),
+        'std_y': (0.2835, 5.2061),
+        'range_x': (2.0694, 9.1295),
+        'range_y': (1.7273, 22.2045),
+        'rms_x': (0.4116, 1.9780),
+        'rms_y': (0.2835, 5.2061),
+        'mean_speed_x': (0.3276, 1.3184),
+        'mean_speed_y': (0.3128, 12.1922),
+        'mean_accel_x': (1.5570, 30.8647),
+        'mean_accel_y': (1.9196, 302.7105),
+        'path_length': (28.7214, 531.0236),
+        'dominant_freq_x': (0.0202, 0.1868),
+        'dominant_freq_y': (0.0233, 0.2088),
+        'mean_x_offset': (0, 0),
+    }
+
+    neg_metrics = ['std_x', 'std_y', 'range_x', 'range_y', 'rms_x', 'rms_y']
+    pos_metrics = ['mean_speed_x', 'mean_speed_y', 'mean_accel_x', 'mean_accel_y', 'path_length', 'dominant_freq_x', 'dominant_freq_y']
+
+    scores = []
+
+    for metric in neg_metrics + pos_metrics:
+        val = metrics.get(metric, None)
+        if val is None:
+            continue
+        min_val, max_val = ref[metric]
+        if max_val == min_val:
+            scaled = 0.5
+        else:
+            scaled = (val - min_val) / (max_val - min_val)
+            if metric in neg_metrics:
+                scaled = 1 - scaled
+            scaled = max(0, min(1, scaled))
+        scores.append(scaled)
+
+    raw_score = np.mean(scores) * 100
+
+    # Выбираем класс по исходному score с порогами (можно менять)
+    if raw_score < 20:
+        predicted_class = 0
+    elif raw_score < 55:
+        predicted_class = 1
+    else:
+        predicted_class = 2
+
+    # Корректируем score ближе к среднему по классу (например, среднее с весом 0.7)
+    stability_score = round(0.7 * raw_score + 0.3 * ref_class_means[predicted_class], 2)
+
+    return stability_score, predicted_class
+
+
+def plot_trajectory(points):
+    points = np.array(points)
+    points = points[np.all(np.isfinite(points), axis=1)]
+    """ Строит график траектории + эллипс доверия """
+    x, y = points[:, 0], points[:, 1]
+
+    # Оценка эллипса доверия
+    cov = np.cov(x, y)
+    eigenvalues, eigenvectors = np.linalg.eigh(cov)
+    angle = np.arctan2(*eigenvectors[:, 0][::-1])
+    width, height = 2 * np.sqrt(eigenvalues)  # 95% доверительный эллипс
+
+    plt.figure(figsize=(6, 6))
+    plt.plot(x, y, marker='o', linestyle='-', alpha=0.6)
+
+    # Добавляем эллипс доверия
+    ellipse = Ellipse(xy=(np.mean(x), np.mean(y)), width=width, height=height,
+                      angle=np.degrees(angle), edgecolor='r', facecolor='none', linewidth=2)
+    plt.gca().add_patch(ellipse)
+
+    plt.xlabel("X (влево-вправо)")
+    plt.ylabel("Y (вверх-вниз)")
+    plt.title("Траектория движения центра тела")
+    plt.grid()
+    return plt
+
+
 def draw_connections(frame, keypoints, edges, confidence_threshold, edges_vec, edges_deg, result, result_edges):
     y, x, c = frame.shape
-    shaped = np.squeeze(np.multiply(keypoints, [y, x, 1]))
+    shaped = keypoints
 
     for edge, color in edges.items():
         p1, p2 = edge

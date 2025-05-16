@@ -1,0 +1,15 @@
+std_x: 0.6191
+std_y: 4.5142
+range_x: 3.1312
+range_y: 16.4287
+rms_x: 0.6191
+rms_y: 4.5142
+mean_speed_x: 0.6081
+mean_speed_y: 6.2944
+mean_accel_x: 7.0897
+mean_accel_y: 107.2988
+path_length: 274.7415
+mean_x_offset: 0.0000
+dominant_freq_x: 0.0468
+dominant_freq_y: 0.0234
+stability: 1

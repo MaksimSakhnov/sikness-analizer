@@ -3,8 +3,9 @@ import numpy as np
 import cv2
 import os
 
-from kalmanFilter import KalmanFilter2D
-from poseLib import draw_connections, draw_keypoints, compute_metrics, plot_trajectory, draw_center_of_mass, draw_plots, compute_stability_score
+from kalmanFilter import KalmanFilter2D, MovingAverageFilter2D, ExponentialSmoothingFilter2D, MedianFilter2D, CombinedMedianMovingAverage
+from poseLib import draw_connections, draw_keypoints, compute_metrics, plot_trajectory, draw_center_of_mass, draw_plots, \
+    compute_stability_score, save_edges_to_json
 
 videos_dir = 'videos'
 plots_dir = 'plots_centered'
@@ -146,6 +147,7 @@ def process_video(video_path, plot_path, elipsis_path, analyze_path):
 
     elipsis = plot_trajectory(CENTER_COORDS)
     elipsis.savefig(elipsis_path, bbox_inches='tight')
+    # save_edges_to_json(RESULT_EDGES, //path)
     plt = draw_plots(RESULT_EDGES)
     plt.savefig(plot_path, bbox_inches='tight')
     plt.close()
@@ -158,10 +160,11 @@ if video_to_process:
     # Обработка только указанного видео
     video_path = os.path.join(videos_dir, video_to_process)
     if os.path.isfile(video_path):
-        plot_name = os.path.splitext(video_to_process)[0] + '.png'
+        plot_name = os.path.splitext(video_to_process)[0] + '_avg_med.png'
         plot_path = os.path.join(plots_dir, plot_name)
-
-        process_video(video_path, plot_path)
+        elipsis_path = os.path.join(elipsis_dir, plot_name)
+        analyze_path = os.path.join(analyze_dir, os.path.splitext(video_to_process)[0] + '.txt')
+        process_video(video_path, plot_path, elipsis_path, analyze_path)
         print(f"Обработано видео: {video_to_process}, график сохранен в: {plot_path}")
     else:
         print(f"Видео {video_to_process} не найдено в {videos_dir}")

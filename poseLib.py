@@ -1,3 +1,4 @@
+import json
 import math
 import numpy as np
 import cv2
@@ -509,3 +510,11 @@ def draw_plots(result_edges):
     # plt.tight_layout()  # Для автоматического выравнивания графиков
     plt.gca().invert_yaxis()
     return plt
+
+
+def save_edges_to_json(data, file_path):
+    # Преобразуем кортежи в строки для JSON-совместимости
+    json_data = {f"{k[0]},{k[1]}": v for k, v in data.items()}
+
+    with open(file_path, 'w') as f:
+        json.dump(json_data, f, indent=4)
